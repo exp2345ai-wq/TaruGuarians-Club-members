@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import { FullPageLoader } from './components/ui'
+import { supabaseConfigError } from './lib/supabase'
 import Login from './pages/Login'
 import Onboarding from './pages/Onboarding'
 import Dashboard from './pages/Dashboard'
@@ -27,6 +28,17 @@ function AdminOnly({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   const { session, profile, loading } = useAuth()
+
+  if (supabaseConfigError) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', textAlign: 'center', fontFamily: 'system-ui, sans-serif' }}>
+        <div>
+          <h1 style={{ fontSize: '1.5rem', marginBottom: '0.75rem' }}>Configuration Error</h1>
+          <p style={{ color: '#666', maxWidth: '32rem' }}>{supabaseConfigError}</p>
+        </div>
+      </div>
+    )
+  }
 
   if (loading) return <FullPageLoader label="Loading TaruGuardians…" />
 

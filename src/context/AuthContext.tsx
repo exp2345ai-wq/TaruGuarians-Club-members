@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { supabase, type Profile } from '../lib/supabase'
+import { supabase, supabaseConfigError, type Profile } from '../lib/supabase'
 
 type AuthState = {
   session: Session | null
@@ -62,6 +62,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let mounted = true
+
+    if (supabaseConfigError) {
+      setLoading(false)
+      return
+    }
 
     supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return
