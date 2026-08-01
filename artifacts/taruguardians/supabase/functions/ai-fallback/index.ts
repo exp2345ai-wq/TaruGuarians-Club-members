@@ -38,10 +38,8 @@ Deno.serve(async (req: Request) => {
     };
 
     const now = new Date();
-    // 24-hour cutoff: any pending task whose deadline is within 24 hours or past
     const cutoff = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
 
-    // Check both tasks AND schedule entries
     const taskRes = await fetch(
       `${adminUrl}tasks?select=*&status=eq.pending&deadline=lte.${cutoff}`,
       { headers }
@@ -49,7 +47,6 @@ Deno.serve(async (req: Request) => {
     if (!taskRes.ok) throw new Error(`task fetch failed: ${taskRes.status}`);
     const tasks = await taskRes.json();
 
-    // Also check schedule entries approaching deadline
     const scheduleRes = await fetch(
       `${adminUrl}schedule?select=*&due_date=lte.${cutoff}`,
       { headers }
@@ -57,23 +54,26 @@ Deno.serve(async (req: Request) => {
     if (!scheduleRes.ok) throw new Error(`schedule fetch failed: ${scheduleRes.status}`);
     const scheduleEntries = await scheduleRes.json();
 
-    // Fetch settings
     const settingsRes = await fetch(
       `${adminUrl}app_settings?select=admin_whatsapp_number,whatsapp_provider,ai_provider&id=eq.1`,
       { headers }
     );
     const settings = (await settingsRes.json())[0] || {};
 
-    // Support separate keys for each provider
-    const openaiKey = Deno.env.get("OPENAI_API_KEY") ?? Deno.env.get("AI_API_KEY") ?? null;
-    const geminiKey = Deno.env.get("GEMINI_API_KEY") ?? null;
-    const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY") ?? null;
+    // Fetch API keys from the secure ai_api_keys table (RLS blocks frontend access; service role bypasses RLS)
+    const keysRes = await fetch(`${adminUrl}ai_api_keys?select=provider,api_key`, { headers });
+    const keysRows = await keysRes.json();
+    const keyMap: Record<string, string> = {};
+    for (const row of keysRows) {
+      keyMap[row.provider] = row.api_key;
+    }
+    const openaiKey = keyMap["openai"] ?? null;
+    const geminiKey = keyMap["gemini"] ?? null;
+    const anthropicKey = keyMap["anthropic"] ?? null;
 
     let generated = 0;
 
-    // Process tasks
     for (const task of tasks) {
-      // Check if content already generated for this task
       const existingRes = await fetch(
         `${adminUrl}content?linked_task_id=eq.${task.id}&limit=1`,
         { headers }
@@ -114,7 +114,6 @@ Deno.serve(async (req: Request) => {
         }),
       });
 
-      // Notify the assigned member
       await fetch(`${adminUrl}notifications`, {
         method: "POST",
         headers,
@@ -125,7 +124,6 @@ Deno.serve(async (req: Request) => {
         }),
       });
 
-      // Send to admin WhatsApp
       if (settings.admin_whatsapp_number) {
         try {
           await sendWhatsApp(settings, task, aiContent, "task");
@@ -134,26 +132,21 @@ Deno.serve(async (req: Request) => {
         }
       }
 
-      // Send to club members chat (broadcast to all members)
       await broadcastToMembers(adminUrl, headers, task, aiContent);
-
       generated++;
     }
 
-    // Process schedule entries (create tasks + generate content if within 24hrs)
     for (const entry of scheduleEntries) {
-      // Check if a task already exists for this schedule entry
       const existingTaskRes = await fetch(
         `${adminUrl}tasks?assigned_to=eq.${entry.member_id}&topic=eq.${entry.topic}&content_type=eq.${entry.content_type}&limit=1`,
         { headers }
       );
       const existingTasks = await existingTaskRes.json();
-      if (existingTasks.length > 0) continue; // already has a task
+      if (existingTasks.length > 0) continue;
 
-      // Create a task from the schedule entry
       const taskBody = {
         assigned_to: entry.member_id,
-        assigned_by: entry.member_id, // self-assigned from schedule
+        assigned_by: entry.member_id,
         topic: entry.topic,
         content_type: entry.content_type,
         deadline: entry.due_date,
@@ -168,7 +161,6 @@ Deno.serve(async (req: Request) => {
       const taskId = newTask[0]?.id;
       if (!taskId) continue;
 
-      // Generate AI content for this schedule entry
       let aiContent: string;
       try {
         aiContent = await generateContent({ ...entry, content_type: entry.content_type, topic: entry.topic }, settings.ai_provider, openaiKey, geminiKey, anthropicKey);
@@ -221,7 +213,6 @@ Deno.serve(async (req: Request) => {
       }
 
       await broadcastToMembers(adminUrl, headers, { ...entry, assigned_to: entry.member_id }, aiContent);
-
       generated++;
     }
 
@@ -250,7 +241,7 @@ async function generateContent(
       `Content Type: ${task.content_type?.toUpperCase()}\n` +
       `Topic: ${task.topic}\n\n` +
       `To enable real AI generation:\n` +
-      `1. Set AI_API_KEY in Supabase Edge Function Secrets\n` +
+      `1. Set OPENAI_API_KEY or GEMINI_API_KEY in the ai_api_keys table\n` +
       `2. Choose your AI provider in Settings\n\n` +
       `Once configured, this will auto-generate ${task.content_type} content for "${task.topic}".`
     );
@@ -324,7 +315,7 @@ function buildPrompt(task: any): string {
     video: "a short video outline with scene-by-scene direction, including visual cues, voiceover/narration text, and estimated duration for each scene",
     post: "an engaging social media post with a strong hook, informative body, relevant hashtags, and a clear call-to-action",
   };
-  return `Generate ${typeMap[task.content_type] ?? "content"} on the topic: "${task.topic}". 
+  return `Generate ${typeMap[task.content_type] ?? "content"} on the topic: "${task.topic}".
 
 This is for an elite club called TaruGuardians. The content should be professional, well-structured, and ready to use. Keep it concise but comprehensive.`;
 }
@@ -335,8 +326,6 @@ async function broadcastToMembers(
   task: any,
   content: string
 ): Promise<void> {
-  // Send a message from admin to the assigned member's chat
-  // Find admin profile
   const adminRes = await fetch(
     `${adminUrl}profiles?role=eq.admin&limit=1`,
     { headers }

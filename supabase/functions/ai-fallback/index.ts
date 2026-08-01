@@ -60,9 +60,16 @@ Deno.serve(async (req: Request) => {
     );
     const settings = (await settingsRes.json())[0] || {};
 
-    const openaiKey = Deno.env.get("OPENAI_API_KEY") ?? Deno.env.get("AI_API_KEY") ?? null;
-    const geminiKey = Deno.env.get("GEMINI_API_KEY") ?? null;
-    const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY") ?? null;
+    // Fetch API keys from the secure ai_api_keys table (RLS blocks frontend access; service role bypasses RLS)
+    const keysRes = await fetch(`${adminUrl}ai_api_keys?select=provider,api_key`, { headers });
+    const keysRows = await keysRes.json();
+    const keyMap: Record<string, string> = {};
+    for (const row of keysRows) {
+      keyMap[row.provider] = row.api_key;
+    }
+    const openaiKey = keyMap["openai"] ?? null;
+    const geminiKey = keyMap["gemini"] ?? null;
+    const anthropicKey = keyMap["anthropic"] ?? null;
 
     let generated = 0;
 
@@ -234,7 +241,7 @@ async function generateContent(
       `Content Type: ${task.content_type?.toUpperCase()}\n` +
       `Topic: ${task.topic}\n\n` +
       `To enable real AI generation:\n` +
-      `1. Set OPENAI_API_KEY or GEMINI_API_KEY in Supabase Edge Function Secrets\n` +
+      `1. Set OPENAI_API_KEY or GEMINI_API_KEY in the ai_api_keys table\n` +
       `2. Choose your AI provider in Settings\n\n` +
       `Once configured, this will auto-generate ${task.content_type} content for "${task.topic}".`
     );
