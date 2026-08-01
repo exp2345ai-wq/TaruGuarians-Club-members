@@ -1,0 +1,2 @@
+- [TaruGuardians Tailwind v3 setup](taruguardians-tailwind.md) — uses tailwind.config.js + postcss, not @tailwindcss/vite; vite.config.ts needs css.postcss block
+- [TaruGuardians Supabase-only architecture](taruguardians-supabase.md) — no custom API server; all data goes directly to Supabase; requires VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY secrets

@@ -1,45 +1,56 @@
-# [Project name]
+# TaruGuardians — Elite Club Platform
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A private club management platform for managing members, tasks, content schedules, and internal communications. Admins assign content tasks; members submit GDs, videos, and posts. Built with Supabase for auth and data.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- Workflow `artifacts/taruguardians: web` — starts the Vite dev server automatically
 - `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- Required secrets: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` — set in Replit Secrets
 
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+- Frontend: React 18 + Vite + Tailwind CSS v3 + React Router v6
+- Auth & DB: Supabase (external — auth, profiles, tasks, content, messages, schedule)
+- UI: Custom components in `src/components/` + shadcn/ui in `src/components/ui/`
+- Fonts: Plus Jakarta Sans (display), Inter (sans), JetBrains Mono (mono) via Google Fonts
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/taruguardians/src/App.tsx` — root router (react-router-dom v6)
+- `artifacts/taruguardians/src/context/AuthContext.tsx` — Supabase auth context, session + profile
+- `artifacts/taruguardians/src/lib/supabase.ts` — Supabase client + all DB types
+- `artifacts/taruguardians/src/pages/` — Login, Onboarding, Dashboard, Members, Tasks, Chat, Schedule, Admin, Settings
+- `artifacts/taruguardians/src/components/Layout.tsx` — shared sidebar/nav layout
+- `artifacts/taruguardians/src/components/ui.tsx` — FullPageLoader, Spinner (original app UI utils)
+- `artifacts/taruguardians/tailwind.config.js` — brand colors: obsidian, slatecard, gold, emerald2, crimson
+- `artifacts/taruguardians/index.html` — Google Fonts links + shield.svg favicon
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- App is fully client-rendered; all data goes directly to Supabase (no custom API server in use)
+- Role-based routing: `Protected` wrapper checks Supabase session; `AdminOnly` checks `profile.role === 'admin'`
+- Onboarding gate: unboarded members are redirected to `/onboarding` on every protected route
+- Tailwind v3 (not v4) — uses `tailwind.config.js` + `postcss.config.js`, not `@tailwindcss/vite`
+- `src/components/ui.tsx` (original app FullPageLoader) coexists with `src/components/ui/` (shadcn); resolution prefers the `.tsx` file
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+Members log in, complete onboarding, then see their dashboard with assigned tasks and content schedule. They can submit content, chat with other members, and view the schedule. Admins can manage all members, assign tasks, view all content submissions, and access settings.
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- User speaks informally in Hindi-English mix; keep responses concise and action-oriented
+- User has ChatGPT (GPT-4) and Gemini Pro — to be used for AI content auto-generation (Task #3)
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` must be set in Replit Secrets or the app shows a Configuration Error screen (this is intentional — the app's own error handling)
+- Do NOT run `pnpm dev` at workspace root — no dev script there; use `WorkflowsRestart` with `artifacts/taruguardians: web`
+- Tailwind v3: always use `tailwind.config.js` content paths `['./index.html', './src/**/*.{ts,tsx}']`
 
 ## Pointers
 
 - See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+- Supabase types are all in `artifacts/taruguardians/src/lib/supabase.ts`: Profile, Task, Content, Message, ScheduleEntry, Notification

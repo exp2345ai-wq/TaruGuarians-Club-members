@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "TaruGuardians"
+description = "TaruGuardians is an elite club platform for managing members, tasks, schedules, and internal communications. It provides a dashboard for tracking content submissions, member management, admin controls, and a real-time chat system — built for club administrators and members alike."
+version = "1.0.0"
+id = "artifacts/taruguardians"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22850
+
+[services.development]
+run = "pnpm --filter @workspace/taruguardians run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/taruguardians", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/taruguardians/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22850"
+BASE_PATH = "/"
