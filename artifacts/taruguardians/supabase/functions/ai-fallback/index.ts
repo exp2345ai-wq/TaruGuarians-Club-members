@@ -64,7 +64,10 @@ Deno.serve(async (req: Request) => {
     );
     const settings = (await settingsRes.json())[0] || {};
 
-    const aiApiKey = Deno.env.get("AI_API_KEY") ?? null;
+    // Support separate keys for each provider
+    const openaiKey = Deno.env.get("OPENAI_API_KEY") ?? Deno.env.get("AI_API_KEY") ?? null;
+    const geminiKey = Deno.env.get("GEMINI_API_KEY") ?? null;
+    const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY") ?? null;
 
     let generated = 0;
 
@@ -80,7 +83,7 @@ Deno.serve(async (req: Request) => {
 
       let aiContent: string;
       try {
-        aiContent = await generateContent(task, settings.ai_provider, aiApiKey);
+        aiContent = await generateContent(task, settings.ai_provider, openaiKey, geminiKey, anthropicKey);
       } catch (e) {
         console.error("AI generation failed for task", task.id, e);
         continue;
@@ -168,7 +171,7 @@ Deno.serve(async (req: Request) => {
       // Generate AI content for this schedule entry
       let aiContent: string;
       try {
-        aiContent = await generateContent({ ...entry, content_type: entry.content_type, topic: entry.topic }, settings.ai_provider, aiApiKey);
+        aiContent = await generateContent({ ...entry, content_type: entry.content_type, topic: entry.topic }, settings.ai_provider, openaiKey, geminiKey, anthropicKey);
       } catch (e) {
         console.error("AI generation failed for schedule entry", entry.id, e);
         continue;
@@ -236,9 +239,12 @@ Deno.serve(async (req: Request) => {
 async function generateContent(
   task: any,
   provider: string | null,
-  apiKey: string | null
+  openaiKey: string | null,
+  geminiKey: string | null,
+  anthropicKey: string | null
 ): Promise<string> {
-  if (!provider || !apiKey) {
+  const hasKey = (provider === "openai" && openaiKey) || (provider === "gemini" && geminiKey) || (provider === "anthropic" && anthropicKey);
+  if (!provider || !hasKey) {
     return (
       `[AI Fallback — Placeholder Content]\n\n` +
       `Content Type: ${task.content_type?.toUpperCase()}\n` +
@@ -256,7 +262,7 @@ async function generateContent(
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${openaiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -275,7 +281,7 @@ async function generateContent(
 
   if (provider === "gemini") {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -294,7 +300,7 @@ async function generateContent(
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
-        "x-api-key": apiKey,
+        "x-api-key": anthropicKey,
         "anthropic-version": "2023-06-01",
         "Content-Type": "application/json",
       },

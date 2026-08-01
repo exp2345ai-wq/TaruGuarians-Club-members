@@ -108,8 +108,8 @@ export default function SettingsPage() {
               <div className="flex items-start gap-3 rounded-lg border border-gold/20 bg-gold/5 p-4">
                 <Info size={16} className="mt-0.5 shrink-0 text-gold" />
                 <div className="text-xs text-slate-400 leading-relaxed">
-                  <p className="mb-1 font-semibold text-gold">API key stored as a server secret</p>
-                  <p>Your AI provider API key is stored in Supabase Edge Function Secrets (not in the database), so it is never exposed to the browser. To set it, go to your Supabase dashboard → Edge Functions → Secrets and add <code className="rounded bg-white/5 px-1">AI_API_KEY</code>.</p>
+                  <p className="mb-1 font-semibold text-gold">API keys are pre-configured in the backend</p>
+                  <p>OpenAI and Gemini API keys are securely stored as server secrets — no need to enter them here. Just pick your preferred provider above and save. The AI will auto-generate content when a member misses a 24-hour deadline.</p>
                 </div>
               </div>
             </div>
