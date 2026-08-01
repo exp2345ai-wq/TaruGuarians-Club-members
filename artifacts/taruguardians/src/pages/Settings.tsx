@@ -101,6 +101,7 @@ export default function SettingsPage() {
                 <select className="input" value={settings.ai_provider ?? ''} onChange={(e) => setSettings({ ...settings, ai_provider: e.target.value })}>
                   <option value="">Not configured</option>
                   <option value="openai">OpenAI (ChatGPT)</option>
+                  <option value="gemini">Google Gemini</option>
                   <option value="anthropic">Anthropic (Claude)</option>
                 </select>
               </div>
