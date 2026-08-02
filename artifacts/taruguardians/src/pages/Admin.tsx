@@ -4,7 +4,7 @@ import { Layout } from '../components/Layout'
 import { ContentTypeBadge, TaskStatusBadge } from '../components/Badges'
 import { Spinner, EmptyState } from '../components/ui'
 import { format } from 'date-fns'
-import { Users, ListChecks, CalendarDays, AlertTriangle, Bot } from 'lucide-react'
+import { Users, ListChecks, CalendarDays, TriangleAlert as AlertTriangle, Bot, Zap, Send } from 'lucide-react'
 
 export default function Admin() {
   const [members, setMembers] = useState<Profile[]>([])
@@ -12,6 +12,10 @@ export default function Admin() {
   const [schedule, setSchedule] = useState<ScheduleEntry[]>([])
   const [content, setContent] = useState<Content[]>([])
   const [loading, setLoading] = useState(true)
+  const [aiRunning, setAiRunning] = useState(false)
+  const [aiResult, setAiResult] = useState<string | null>(null)
+  const [reminderRunning, setReminderRunning] = useState(false)
+  const [reminderResult, setReminderResult] = useState<string | null>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -36,6 +40,43 @@ export default function Admin() {
   const overdueTasks = tasks.filter((t) => new Date(t.deadline) < new Date() && t.status === 'pending')
   const aiTasks = tasks.filter((t) => t.status === 'ai_generated')
 
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
+
+  const runAiFallback = async () => {
+    setAiRunning(true)
+    setAiResult(null)
+    try {
+      const res = await fetch(`${supabaseUrl}/functions/v1/ai-fallback`, { method: 'POST' })
+      const data = await res.json()
+      if (res.ok) {
+        setAiResult(`Done — checked ${data.checked ?? 0} items, generated ${data.generated ?? 0} new content.`)
+        setTimeout(() => window.location.reload(), 1500)
+      } else {
+        setAiResult(`Error: ${data.error ?? 'Unknown error'}`)
+      }
+    } catch (e) {
+      setAiResult(`Error: ${(e as Error).message}`)
+    }
+    setAiRunning(false)
+  }
+
+  const runReminders = async () => {
+    setReminderRunning(true)
+    setReminderResult(null)
+    try {
+      const res = await fetch(`${supabaseUrl}/functions/v1/schedule-reminders`, { method: 'POST' })
+      const data = await res.json()
+      if (res.ok) {
+        setReminderResult(`Done — ${data.sent ?? 0} reminders sent.`)
+      } else {
+        setReminderResult(`Error: ${data.error ?? 'Unknown error'}`)
+      }
+    } catch (e) {
+      setReminderResult(`Error: ${(e as Error).message}`)
+    }
+    setReminderRunning(false)
+  }
+
   return (
     <Layout>
       <div className="mb-8">
@@ -55,6 +96,18 @@ export default function Admin() {
             <StatCard icon={AlertTriangle} label="Overdue" value={overdueTasks.length} color="text-crimson" />
             <StatCard icon={Bot} label="AI-Generated" value={aiTasks.length} color="text-gold" />
           </div>
+
+          {/* AI Fallback & Reminder Triggers */}
+          <div className="mb-8 flex flex-wrap gap-3">
+            <button onClick={runAiFallback} disabled={aiRunning} className="btn-gold">
+              {aiRunning ? <Spinner size={16} /> : <Zap size={16} />} {aiRunning ? 'Running AI…' : 'Run AI Fallback'}
+            </button>
+            <button onClick={runReminders} disabled={reminderRunning} className="btn-ghost">
+              {reminderRunning ? <Spinner size={16} /> : <Send size={16} />} {reminderRunning ? 'Sending…' : 'Send Reminders'}
+            </button>
+          </div>
+          {aiResult && <p className="mb-4 text-sm text-gold">{aiResult}</p>}
+          {reminderResult && <p className="mb-4 text-sm text-slate-300">{reminderResult}</p>}
 
           {overdueTasks.length > 0 && (
             <div className="mb-8">

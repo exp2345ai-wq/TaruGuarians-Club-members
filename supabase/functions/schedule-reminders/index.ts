@@ -11,21 +11,6 @@ Deno.serve(async (req: Request) => {
     return new Response(null, { status: 200, headers: corsHeaders });
   }
 
-  const functionSecret = Deno.env.get("FUNCTION_SECRET");
-  if (!functionSecret) {
-    return new Response(JSON.stringify({ error: "Function not configured: FUNCTION_SECRET missing" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-  const authHeader = req.headers.get("Authorization") ?? "";
-  if (authHeader !== `Bearer ${functionSecret}`) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
